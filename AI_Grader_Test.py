@@ -1,12 +1,31 @@
 import os
 import docx
-import ollama
 from tqdm import tqdm
+from langchain.llms import Ollama
 
 class ReportGrader:
-    def __init__(self, base_directory: str, model: str = 'mistral:7b-instruct'):
+    def __init__(
+        self,
+        base_directory: str,
+        model: str = 'mistral:7b-instruct',
+        num_ctx: int = 2048,
+        temperature: float = 0.7,
+        top_p: float = 0.9
+    ):
         self.base_directory = base_directory
         self.model = model
+        self.num_ctx = num_ctx
+        self.temperature = temperature
+        self.top_p = top_p
+
+        # Initialize the Ollama LLM with specified settings
+        self.llm = Ollama(
+            model=self.model,
+            num_ctx=self.num_ctx,
+            temperature=self.temperature,
+            top_p=self.top_p,
+            # Add other model parameters as needed
+        )
 
     def _extract_text_from_docx(self, file_path: str) -> str:
         doc = docx.Document(file_path)
@@ -51,24 +70,12 @@ class ReportGrader:
                 prompt_text = self._extract_text_from_docx(prompt_path)
                 
                 try:
-                    # Verbose system message to ensure prompt adherence
-                    system_message = (
-                        f"CRITICAL INSTRUCTIONS FOR PROMPT {prompt_num}:\n"
-                        "1. You MUST carefully read and follow the specific prompt provided below.\n"
-                        "2. Do NOT simply summarize the report.\n"
-                        "3. Directly address the exact requirements of the prompt.\n"
-                        "4. If the prompt asks a specific question, answer THAT question.\n"
-                        "5. If the prompt requests a specific type of analysis, provide THAT analysis.\n\n"
-                        f"SPECIFIC PROMPT DETAILS:\n{prompt_text}\n\n"
-                        "PROMPT VERIFICATION: Confirm you will follow these instructions precisely."
-                    )
+                    # Use the prompt text as-is, combining it with the report content
+                    complete_prompt = f"{prompt_text}\n\n{report_text}"
 
                     # Generate response from Ollama
-                    response = ollama.chat(model=self.model, messages=[
-                        {'role': 'system', 'content': system_message},
-                        {'role': 'user', 'content': report_text}
-                    ])
-                    
+                    response = self.llm(complete_prompt)
+
                     # Prepare output filename
                     output_filename = f'{self.model}_{report_name}_Prompt_{prompt_num}.docx'
                     output_path = os.path.join(folder_path, output_filename)
@@ -81,7 +88,7 @@ class ReportGrader:
                     output_doc.add_paragraph(prompt_text)
                     output_doc.add_paragraph("\n--- AI Response ---\n")
                     
-                    output_doc.add_paragraph(response['message']['content'])
+                    output_doc.add_paragraph(response)
                     output_doc.save(output_path)
                     
                     print(f"Processed {folder_name} - Prompt {prompt_num}")
@@ -91,8 +98,15 @@ class ReportGrader:
 
 def main():
     base_directory = '/home/akash/Downloads/grading_documents'
-    
-    grader = ReportGrader(base_directory)
+
+    # Example of setting model parameters
+    grader = ReportGrader(
+        base_directory, 
+        model='qwen2.5:7b-instruct', 
+        num_ctx=32768,
+        temperature=0.5,
+        top_p=0.9
+    )
     grader.grade_reports()
 
 if __name__ == '__main__':
