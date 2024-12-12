@@ -42,7 +42,7 @@ class ReportGrader:
             
             print(f"\nProcessing Folder: {folder_name}")
             
-            report_files = [f for f in os.listdir(folder_path) if f.startswith('report_') and f.endswith('.docx')]
+            report_files = [f for f in os.listdir(folder_path) if f.startswith('Report_') and f.endswith('.docx')]
             
             if not report_files:
                 print(f"No report files found in: {folder_path}")
