@@ -1,7 +1,6 @@
 import os
 import docx
 import ollama
-from ollama import ChatResponse
 from tqdm import tqdm
 
 class ReportGrader:
@@ -71,7 +70,7 @@ class ReportGrader:
                 
                 try:
                     # Generate response from Ollama
-                    response: ChatResponse = chat(model=self.model, messages=[
+                    response = ollama.chat(model=self.model, messages=[
                         {'role': 'system', 'content': prompt_text},
                         {'role': 'user', 'content': report_text}
                     ])
