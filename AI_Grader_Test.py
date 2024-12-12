@@ -1,10 +1,11 @@
 import os
 import docx
 import ollama
+from ollama import ChatResponse
 from tqdm import tqdm
 
 class ReportGrader:
-    def __init__(self, base_directory: str, model: str = 'llama3.1-8b-instruct'):
+    def __init__(self, base_directory: str, model: str = 'llama3.1:8b-instruct-q4_0'):
         """
         Initialize the Report Grader for multiple folders
         
@@ -70,7 +71,7 @@ class ReportGrader:
                 
                 try:
                     # Generate response from Ollama
-                    response = ollama.chat(model=self.model, messages=[
+                    response: ChatResponse = chat(model=self.model, messages=[
                         {'role': 'system', 'content': prompt_text},
                         {'role': 'user', 'content': report_text}
                     ])
@@ -89,7 +90,7 @@ class ReportGrader:
 
 def main():
     # Specify the base directory containing all report folders
-    base_directory = 'path/to/your/base/directory'
+    base_directory = '/home/akash/Downloads/grading_documents'
     
     grader = ReportGrader(base_directory)
     grader.grade_reports()
