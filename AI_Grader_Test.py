@@ -39,7 +39,7 @@ class ReportGrader:
         return processed_text
 
     def grade_reports(self):
-        for folder_name in tqdm(os.listdir(self.base_directory), desc="Processing Folders"):
+        for folder_name in tqdm(os.listdir(self.base_directory), desc=f"Processing Folders with {self.model}"):
             folder_path = os.path.join(self.base_directory, folder_name)
             
             if not os.path.isdir(folder_path):
@@ -91,23 +91,40 @@ class ReportGrader:
                     output_doc.add_paragraph(response)
                     output_doc.save(output_path)
                     
-                    print(f"Processed {folder_name} - Prompt {prompt_num}")
+                    print(f"Processed {folder_name} - Prompt {prompt_num} with {self.model}")
                 
                 except Exception as e:
-                    print(f"Error processing {folder_name}/Prompt_{prompt_num}: {e}")
+                    print(f"Error processing {folder_name}/Prompt_{prompt_num} with {self.model}: {e}")
 
 def main():
     base_directory = '/home/akash/Downloads/grading_documents'
 
-    # Example of setting model parameters
-    grader = ReportGrader(
-        base_directory, 
-        model='qwen2.5:7b-instruct', 
-        num_ctx=32768,
-        temperature=0.5,
-        top_p=0.9
-    )
-    grader.grade_reports()
+    # Dictionary of models with their specific context lengths
+    models = {
+        'qwen2.5:7b-instruct-q4_0': 32768, 
+        'llama3.1:8b-instruct-q4_0': 131072, 
+        'gemma2:9b-instruct-q4_0': 8192, 
+        'internlm2:7b': 32768,
+        'mistral-nemo:12b-instruct-2407-q4_0': 1024000
+    }
+
+    # Run with each model
+    for model, context_length in models.items():
+        print(f"\nStarting processing with model: {model}")
+        
+        # Create grader with current model and its specific context length
+        grader = ReportGrader(
+            base_directory, 
+            model=model, 
+            num_ctx=context_length,
+            temperature=0.5,
+            top_p=0.9
+        )
+        
+        # Run grading process for this model
+        grader.grade_reports()
+        
+        print(f"Completed processing with model: {model}")
 
 if __name__ == '__main__':
     main()
