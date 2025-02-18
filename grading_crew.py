@@ -1,5 +1,6 @@
 import os
 import json
+import re
 import docx
 from tqdm import tqdm
 from langchain_ollama import ChatOllama
@@ -33,6 +34,17 @@ class AgenticReportGrader:
             return response.content
         return response
 
+    def clean_response(self, response: str) -> str:
+        """
+        Remove markdown code fences from the LLM response.
+        """
+        # Remove any leading/trailing whitespace
+        response = response.strip()
+        # Remove markdown code block markers, e.g. ``` or ```json
+        response = re.sub(r"^```(json)?\s*", "", response)
+        response = re.sub(r"\s*```$", "", response)
+        return response.strip()
+
     def _extract_text_from_docx(self, file_path: str) -> str:
         doc = docx.Document(file_path)
         return "\n".join([para.text for para in doc.paragraphs if para.text])
@@ -51,10 +63,11 @@ Grading Prompt:
 Format your output as a JSON array of strings, where each string is a section-specific evaluation prompt.
 """
         response = self.llm_call(prompt)
+        cleaned_response = self.clean_response(response)
         try:
-            section_prompts = json.loads(response)
+            section_prompts = json.loads(cleaned_response)
         except Exception as e:
-            raise ValueError(f"Failed to parse section prompts from LLM response: {e}\nResponse was: {response}")
+            raise ValueError(f"Failed to parse section prompts from LLM response: {e}\nResponse was: {cleaned_response}")
         return section_prompts
 
     def evaluate_section(self, section_prompt: str, report_text: str, section_index: int) -> str:
@@ -136,7 +149,7 @@ Section Evaluations:
 def main():
     base_directory = '/home/akash/Downloads/grading_documents'
     models = {
-        'qwen2.5:7b-instruct-q4_0': 32768
+        'ollama/qwen2.5:7b-instruct-q4_0': 32768
     }
 
     for model, ctx in models.items():
