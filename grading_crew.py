@@ -7,14 +7,12 @@ from langchain_ollama import ChatOllama
 from langchain.schema import HumanMessage
 
 class AgenticReportGrader:
-    def __init__(
-        self,
-        base_directory: str,
-        model: str = 'mistral:7b-instruct',
-        num_ctx: int = 2048,
-        temperature: float = 0.7,
-        top_p: float = 0.9
-    ):
+    def __init__(self,
+                 base_directory: str,
+                 model: str = 'mistral:7b-instruct',
+                 num_ctx: int = 2048,
+                 temperature: float = 0.7,
+                 top_p: float = 0.9):
         self.base_directory = base_directory
         self.llm = ChatOllama(
             model=model,
@@ -24,23 +22,14 @@ class AgenticReportGrader:
         )
 
     def llm_call(self, prompt: str) -> str:
-        """
-        Helper method to send the prompt in the correct format as a HumanMessage.
-        """
         messages = [HumanMessage(content=prompt)]
         response = self.llm(messages)
-        # If response is an object with a 'content' attribute, return that.
         if hasattr(response, "content"):
             return response.content
         return response
 
     def clean_response(self, response: str) -> str:
-        """
-        Remove markdown code fences from the LLM response.
-        """
-        # Remove any leading/trailing whitespace
         response = response.strip()
-        # Remove markdown code block markers, e.g. ``` or ```json
         response = re.sub(r"^```(json)?\s*", "", response)
         response = re.sub(r"\s*```$", "", response)
         return response.strip()
@@ -49,33 +38,44 @@ class AgenticReportGrader:
         doc = docx.Document(file_path)
         return "\n".join([para.text for para in doc.paragraphs if para.text])
 
-    def generate_section_prompts(self, grading_prompt: str) -> list:
+    def generate_evaluation_prompts(self, grading_prompt: str) -> dict:
         """
-        Uses the LLM to decompose the overall grading prompt into a JSON array
-        of section-specific evaluation prompts.
+        Decompose the grading rubric into two parts:
+          1. A JSON array of section-specific evaluation prompts.
+          2. A final evaluation prompt that instructs the evaluator to:
+             - Use the rubric exactly (without adding new criteria),
+             - Include each section's grade and justification,
+             - Provide an overall final letter grade (A-F) with detailed feedback.
+        Output a JSON object with keys "section_prompts" and "final_prompt".
         """
         prompt = f"""You are a Prompt Engineering Expert with extensive experience in educational assessment design.
-Analyze and decompose the following grading prompt into distinct evaluation sections.
-For each section, create a specific prompt that can be used to evaluate that section.
-Grading Prompt:
-{grading_prompt}
+Analyze and decompose the following grading rubric into two parts:
+1. Generate a JSON array of section-specific evaluation prompts that can be used to evaluate distinct sections of a student report.
+2. Create a final evaluation prompt for a Senior Grading Coordinator that instructs them to compile a final grading report.
+   The final prompt must require:
+     - Strict use of the provided rubric (do not introduce new criteria),
+     - Inclusion of each section's grade along with justification,
+     - An overall final letter grade (A-F) with detailed justification and feedback.
+Output the result as a valid JSON object with the following structure:
+{{
+  "section_prompts": [ "Section prompt 1", "Section prompt 2", ... ],
+  "final_prompt": "Final evaluation prompt string"
+}}
 
-Format your output as a JSON array of strings, where each string is a section-specific evaluation prompt.
+Grading Rubric:
+{grading_prompt}
 """
         response = self.llm_call(prompt)
         cleaned_response = self.clean_response(response)
         try:
-            section_prompts = json.loads(cleaned_response)
+            evaluation_prompts = json.loads(cleaned_response)
         except Exception as e:
-            raise ValueError(f"Failed to parse section prompts from LLM response: {e}\nResponse was: {cleaned_response}")
-        return section_prompts
+            raise ValueError(f"Failed to parse evaluation prompts from LLM response: {e}\nResponse was: {cleaned_response}")
+        return evaluation_prompts
 
     def evaluate_section(self, section_prompt: str, report_text: str, section_index: int) -> str:
-        """
-        Uses the LLM to evaluate a section of the student report based on the provided criteria.
-        """
-        prompt = f"""You are a Grading Section Specialist, a subject matter expert with meticulous attention to detail.
-Evaluate the following student report based on these section criteria.
+        prompt = f"""You are a Grading Section Specialist with meticulous attention to detail.
+Evaluate the following student report based on the criteria for Section {section_index}.
 
 Section {section_index} Criteria:
 {section_prompt}
@@ -83,23 +83,17 @@ Section {section_index} Criteria:
 Student Report:
 {report_text}
 
-Provide a detailed evaluation including a score and rationale in Markdown format.
+Provide a detailed evaluation for this section including a grade (numeric or letter), score, and rationale in Markdown format.
 """
         return self.llm_call(prompt)
 
-    def final_evaluation(self, section_evaluations: list) -> str:
+    def final_evaluation(self, final_prompt: str, section_evaluations: list) -> str:
         """
-        Uses the LLM to synthesize the individual section evaluations into a final grade and overall feedback.
+        Combine the final prompt with the section evaluations and generate the final report.
         """
         combined_evaluations = "\n\n".join(section_evaluations)
-        prompt = f"""You are a Senior Grading Coordinator with extensive experience in holistic assessment.
-Based on the following section evaluations, compile a final grade for the student report.
-Include overall feedback, suggestions for improvement, and justify the final letter grade (A-F).
-
-Section Evaluations:
-{combined_evaluations}
-"""
-        return self.llm_call(prompt)
+        full_prompt = f"{final_prompt}\n\nSection Evaluations:\n{combined_evaluations}"
+        return self.llm_call(full_prompt)
 
     def grade_reports(self):
         for folder_name in tqdm(os.listdir(self.base_directory), desc="Processing"):
@@ -123,19 +117,21 @@ Section Evaluations:
                 grading_prompt_text = self._extract_text_from_docx(prompt_path)
 
                 try:
-                    # Step 1: Generate section-specific prompts from the overall grading prompt
-                    section_prompts = self.generate_section_prompts(grading_prompt_text)
+                    # Step 1: Generate both section-specific prompts and a final evaluation prompt from the rubric.
+                    evaluation_prompts = self.generate_evaluation_prompts(grading_prompt_text)
+                    section_prompts = evaluation_prompts.get("section_prompts", [])
+                    final_prompt = evaluation_prompts.get("final_prompt", "")
 
-                    # Step 2: Evaluate each section using the corresponding prompt
+                    # Step 2: Evaluate each section using the corresponding prompt.
                     section_evaluations = []
                     for idx, section_prompt in enumerate(section_prompts, start=1):
                         evaluation = self.evaluate_section(section_prompt, report_text, idx)
                         section_evaluations.append(evaluation)
-                    
-                    # Step 3: Synthesize the final evaluation from all section evaluations
-                    final_output = self.final_evaluation(section_evaluations)
 
-                    # Save final output to a DOCX file
+                    # Step 3: Synthesize the final evaluation using the provided final prompt.
+                    final_output = self.final_evaluation(final_prompt, section_evaluations)
+
+                    # Save final output to a DOCX file.
                     output_filename = f'GRADED_{report_files[0].replace(".docx", "")}_Prompt_{prompt_num}.docx'
                     output_path = os.path.join(folder_path, output_filename)
                     
@@ -149,7 +145,7 @@ Section Evaluations:
 def main():
     base_directory = '/home/akash/Downloads/grading_documents'
     models = {
-        'qwen2.5:7b-instruct-q4_0': 32768
+        'ollama/qwen2.5:7b-instruct-q4_0': 32768
     }
 
     for model, ctx in models.items():
