@@ -2,7 +2,6 @@ import os
 import json
 import docx
 from tqdm import tqdm
-from crewai import Agent, Task, Crew
 from langchain_ollama import ChatOllama
 
 class AgenticReportGrader:
@@ -24,83 +23,58 @@ class AgenticReportGrader:
 
     def _extract_text_from_docx(self, file_path: str) -> str:
         doc = docx.Document(file_path)
-        return '\n'.join([para.text for para in doc.paragraphs if para.text])
+        return "\n".join([para.text for para in doc.paragraphs if para.text])
 
-    def _create_agents(self):
-        """Create CrewAI agents with roles and configurations"""
-        self.prompt_gen_agent = Agent(
-            role='Prompt Engineering Expert',
-            goal='Break down grading prompts into section-specific evaluation criteria',
-            backstory='Expert in educational assessment design and prompt engineering',
-            llm=self.llm,
-            verbose=False
-        )
+    def generate_section_prompts(self, grading_prompt: str) -> list:
+        """
+        Uses the LLM to decompose the overall grading prompt into a JSON array
+        of section-specific evaluation prompts.
+        """
+        prompt = f"""You are a Prompt Engineering Expert with extensive experience in educational assessment design.
+Analyze and decompose the following grading prompt into distinct evaluation sections.
+For each section, create a specific prompt that can be used to evaluate that section.
+Grading Prompt:
+{grading_prompt}
 
-        self.section_eval_agent = Agent(
-            role='Grading Section Specialist',
-            goal='Thoroughly evaluate student submissions against specific section criteria',
-            backstory='Subject matter expert with meticulous attention to detail',
-            llm=self.llm,
-            verbose=False
-        )
+Format your output as a JSON array of strings, where each string is a section-specific evaluation prompt.
+"""
+        response = self.llm(prompt)
+        try:
+            section_prompts = json.loads(response)
+        except Exception as e:
+            raise ValueError(f"Failed to parse section prompts from LLM response: {e}\nResponse was: {response}")
+        return section_prompts
 
-        self.final_eval_agent = Agent(
-            role='Senior Grading Coordinator',
-            goal='Synthesize section evaluations into final grade with comprehensive feedback',
-            backstory='Experienced educator with holistic evaluation expertise',
-            llm=self.llm,
-            verbose=False
-        )
+    def evaluate_section(self, section_prompt: str, report_text: str, section_index: int) -> str:
+        """
+        Uses the LLM to evaluate a section of the student report based on the provided criteria.
+        """
+        prompt = f"""You are a Grading Section Specialist, a subject matter expert with meticulous attention to detail.
+Evaluate the following student report based on these section criteria.
 
-    def _create_workflow(self, prompt_text: str, report_text: str):
-        """Create dynamic workflow tasks"""
-        prompt_gen_task = Task(
-            description=f"""Analyze and decompose this grading prompt:
-            {prompt_text}
-            Identify distinct evaluation sections and create specific prompts for each section.
-            Format output as a JSON array of strings.""",
-            agent=self.prompt_gen_agent,
-            expected_output="JSON array of section evaluation prompts"
-        )
+Section {section_index} Criteria:
+{section_prompt}
 
-        # Create temporary crew for prompt generation
-        prompt_crew = Crew(
-            agents=[self.prompt_gen_agent],
-            tasks=[prompt_gen_task]
-        )
-        section_prompts = json.loads(prompt_crew.kickoff())
+Student Report:
+{report_text}
 
-        # Create section evaluation tasks
-        section_tasks = []
-        for idx, section_prompt in enumerate(section_prompts):
-            task = Task(
-                description=f"""Evaluate student report against this section criteria:
-                {section_prompt}
-                Student Report Content:
-                {report_text}
-                Provide detailed evaluation with score and rationale.""",
-                agent=self.section_eval_agent,
-                expected_output=f"Markdown evaluation for section {idx+1}",
-                output_file=f"temp_section_{idx+1}.md"
-            )
-            section_tasks.append(task)
+Provide a detailed evaluation including a score and rationale in Markdown format.
+"""
+        return self.llm(prompt)
 
-        # Final evaluation task
-        final_task = Task(
-            description="""Compile section evaluations into final grade.
-            Consider all section evaluations and provide final assessment.
-            Include overall feedback and suggestions for improvement.
-            Format final grade as letter grade (A-F) with justification.""",
-            agent=self.final_eval_agent,
-            expected_output="Final report with grade and comprehensive feedback",
-            context=section_tasks,
-            output_file="final_grade.docx"
-        )
+    def final_evaluation(self, section_evaluations: list) -> str:
+        """
+        Uses the LLM to synthesize the individual section evaluations into a final grade and overall feedback.
+        """
+        combined_evaluations = "\n\n".join(section_evaluations)
+        prompt = f"""You are a Senior Grading Coordinator with extensive experience in holistic assessment.
+Based on the following section evaluations, compile a final grade for the student report.
+Include overall feedback, suggestions for improvement, and justify the final letter grade (A-F).
 
-        return Crew(
-            agents=[self.section_eval_agent, self.final_eval_agent],
-            tasks=section_tasks + [final_task]
-        )
+Section Evaluations:
+{combined_evaluations}
+"""
+        return self.llm(prompt)
 
     def grade_reports(self):
         for folder_name in tqdm(os.listdir(self.base_directory), desc="Processing"):
@@ -108,30 +82,35 @@ class AgenticReportGrader:
             if not os.path.isdir(folder_path):
                 continue
 
-            # Process report and prompts
-            report_files = [f for f in os.listdir(folder_path) 
-                          if f.lower().startswith('report_') and f.endswith('.docx')]
+            # Process report file (assumes a file starting with 'report_' in the folder)
+            report_files = [f for f in os.listdir(folder_path) if f.lower().startswith('report_') and f.endswith('.docx')]
             if not report_files:
                 continue
-
             report_path = os.path.join(folder_path, report_files[0])
             report_text = self._extract_text_from_docx(report_path)
 
+            # Process prompt files for prompt_1.docx to prompt_6.docx
             for prompt_num in range(1, 7):
-                prompt_files = [f for f in os.listdir(folder_path)
-                               if f.lower() == f'prompt_{prompt_num}.docx']
+                prompt_files = [f for f in os.listdir(folder_path) if f.lower() == f'prompt_{prompt_num}.docx']
                 if not prompt_files:
                     continue
-
                 prompt_path = os.path.join(folder_path, prompt_files[0])
-                prompt_text = self._extract_text_from_docx(prompt_path)
+                grading_prompt_text = self._extract_text_from_docx(prompt_path)
 
                 try:
-                    self._create_agents()
-                    grading_crew = self._create_workflow(prompt_text, report_text)
-                    final_output = grading_crew.kickoff()
+                    # Step 1: Generate section-specific prompts from the overall grading prompt
+                    section_prompts = self.generate_section_prompts(grading_prompt_text)
 
-                    # Save final output
+                    # Step 2: Evaluate each section using the corresponding prompt
+                    section_evaluations = []
+                    for idx, section_prompt in enumerate(section_prompts, start=1):
+                        evaluation = self.evaluate_section(section_prompt, report_text, idx)
+                        section_evaluations.append(evaluation)
+                    
+                    # Step 3: Synthesize the final evaluation from all section evaluations
+                    final_output = self.final_evaluation(section_evaluations)
+
+                    # Save final output to a DOCX file
                     output_filename = f'GRADED_{report_files[0].replace(".docx", "")}_Prompt_{prompt_num}.docx'
                     output_path = os.path.join(folder_path, output_filename)
                     
