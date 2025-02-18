@@ -136,7 +136,7 @@ Section Evaluations:
 def main():
     base_directory = '/home/akash/Downloads/grading_documents'
     models = {
-        'ollama/qwen2.5:7b-instruct-q4_0': 32768
+        'qwen2.5:7b-instruct-q4_0': 32768
     }
 
     for model, ctx in models.items():
