@@ -21,6 +21,17 @@ class AgenticReportGrader:
             top_p=top_p
         )
 
+    def llm_call(self, prompt: str) -> str:
+        """
+        Helper method to send the prompt in the correct format and return the LLM's response.
+        """
+        messages = [{"role": "user", "content": prompt}]
+        response = self.llm(messages)
+        # If response is a dict, extract the 'content'
+        if isinstance(response, dict) and "content" in response:
+            return response["content"]
+        return response
+
     def _extract_text_from_docx(self, file_path: str) -> str:
         doc = docx.Document(file_path)
         return "\n".join([para.text for para in doc.paragraphs if para.text])
@@ -38,7 +49,7 @@ Grading Prompt:
 
 Format your output as a JSON array of strings, where each string is a section-specific evaluation prompt.
 """
-        response = self.llm(prompt)
+        response = self.llm_call(prompt)
         try:
             section_prompts = json.loads(response)
         except Exception as e:
@@ -60,7 +71,7 @@ Student Report:
 
 Provide a detailed evaluation including a score and rationale in Markdown format.
 """
-        return self.llm(prompt)
+        return self.llm_call(prompt)
 
     def final_evaluation(self, section_evaluations: list) -> str:
         """
@@ -74,7 +85,7 @@ Include overall feedback, suggestions for improvement, and justify the final let
 Section Evaluations:
 {combined_evaluations}
 """
-        return self.llm(prompt)
+        return self.llm_call(prompt)
 
     def grade_reports(self):
         for folder_name in tqdm(os.listdir(self.base_directory), desc="Processing"):
