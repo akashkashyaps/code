@@ -100,8 +100,7 @@ class AgenticReportGrader:
 
         return Crew(
             agents=[self.section_eval_agent, self.final_eval_agent],
-            tasks=section_tasks + [final_task],
-            verbose=2
+            tasks=section_tasks + [final_task]
         )
 
     def grade_reports(self):
