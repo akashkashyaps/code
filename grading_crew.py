@@ -66,8 +66,7 @@ class AgenticReportGrader:
         # Create temporary crew for prompt generation
         prompt_crew = Crew(
             agents=[self.prompt_gen_agent],
-            tasks=[prompt_gen_task],
-            verbose=2
+            tasks=[prompt_gen_task]
         )
         section_prompts = json.loads(prompt_crew.kickoff())
 
