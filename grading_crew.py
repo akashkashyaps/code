@@ -33,7 +33,7 @@ class AgenticReportGrader:
             goal='Break down grading prompts into section-specific evaluation criteria',
             backstory='Expert in educational assessment design and prompt engineering',
             llm=self.llm,
-            verbose=True
+            verbose=False
         )
 
         self.section_eval_agent = Agent(
@@ -41,7 +41,7 @@ class AgenticReportGrader:
             goal='Thoroughly evaluate student submissions against specific section criteria',
             backstory='Subject matter expert with meticulous attention to detail',
             llm=self.llm,
-            verbose=True
+            verbose=False
         )
 
         self.final_eval_agent = Agent(
@@ -49,7 +49,7 @@ class AgenticReportGrader:
             goal='Synthesize section evaluations into final grade with comprehensive feedback',
             backstory='Experienced educator with holistic evaluation expertise',
             llm=self.llm,
-            verbose=True
+            verbose=False
         )
 
     def _create_workflow(self, prompt_text: str, report_text: str):
