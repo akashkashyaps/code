@@ -3,6 +3,7 @@ import json
 import docx
 from tqdm import tqdm
 from langchain_ollama import ChatOllama
+from langchain.schema import HumanMessage
 
 class AgenticReportGrader:
     def __init__(
@@ -23,13 +24,13 @@ class AgenticReportGrader:
 
     def llm_call(self, prompt: str) -> str:
         """
-        Helper method to send the prompt in the correct format and return the LLM's response.
+        Helper method to send the prompt in the correct format as a HumanMessage.
         """
-        messages = [{"role": "user", "content": prompt}]
+        messages = [HumanMessage(content=prompt)]
         response = self.llm(messages)
-        # If response is a dict, extract the 'content'
-        if isinstance(response, dict) and "content" in response:
-            return response["content"]
+        # If response is an object with a 'content' attribute, return that.
+        if hasattr(response, "content"):
+            return response.content
         return response
 
     def _extract_text_from_docx(self, file_path: str) -> str:
