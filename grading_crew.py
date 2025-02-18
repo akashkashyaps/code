@@ -45,21 +45,19 @@ class AgenticReportGrader:
           2. A final evaluation prompt that instructs the evaluator to:
              - Use the rubric exactly (without adding new criteria),
              - Include each section's grade and justification,
-             - Provide an overall final letter grade (A-F) with detailed feedback.
         Output a JSON object with keys "section_prompts" and "final_prompt".
         """
         prompt = f"""You are a Prompt Engineering Expert with extensive experience in educational assessment design.
 Analyze and decompose the following grading rubric into two parts:
-1. Generate a JSON array of section-specific evaluation prompts that can be used to evaluate distinct sections of a student report.
+1. Generate a JSON array of section-specific evaluation prompts that can be used to evaluate distinct sections of a student report. All of the section prompts should be detail;ed with every instructions on how to evaluate that section and how to grade that section according to the grading rubrics.
 2. Create a final evaluation prompt for a Senior Grading Coordinator that instructs them to compile a final grading report.
    The final prompt must require:
      - Strict use of the provided rubric (do not introduce new criteria),
      - Inclusion of each section's grade along with justification,
-     - An overall final letter grade (A-F) with detailed justification and feedback.
 Output the result as a valid JSON object with the following structure:
 {{
   "section_prompts": [ "Section prompt 1", "Section prompt 2", ... ],
-  "final_prompt": ["Final evaluation prompt string"]
+  "final_prompt": [{"Final evaluation prompt string"}]
 }}
 
 Grading Rubric:
