@@ -59,7 +59,7 @@ Analyze and decompose the following grading rubric into two parts:
 Output the result as a valid JSON object with the following structure:
 {{
   "section_prompts": [ "Section prompt 1", "Section prompt 2", ... ],
-  "final_prompt": "Final evaluation prompt string"
+  "final_prompt": ["Final evaluation prompt string"]
 }}
 
 Grading Rubric:
