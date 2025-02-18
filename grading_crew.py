@@ -49,17 +49,19 @@ class AgenticReportGrader:
         """
         prompt = f"""You are a Prompt Engineering Expert with extensive experience in educational assessment design.
 Analyze and decompose the following grading rubric into two parts:
-1. Generate a JSON array of section-specific evaluation prompts that can be used to evaluate distinct sections of a student report. All of the section prompts should be detail;ed with every instructions on how to evaluate that section and how to grade that section according to the grading rubrics.
+1. Generate a JSON array of section-specific evaluation prompts that can be used to evaluate distinct sections of a student report. All of the section prompts should be detailed with every instructions on how to evaluate that section and how to grade that section according to the grading rubrics.Each can be 500 words.
 2. Create a final evaluation prompt for a Senior Grading Coordinator that instructs them to compile a final grading report.
    The final prompt must require:
      - Strict use of the provided rubric (do not introduce new criteria),
      - Inclusion of each section's grade along with justification,
-Output the result as a valid JSON object with the following structure:
+Return a valid JSON object **with no extra keys**. The structure must be:
 {{
-  "section_prompts": [ "Section prompt 1", "Section prompt 2", ... ],
-  "final_prompt": "Final evaluation prompt string"
+  "section_prompts": [
+    "string prompt for section 1",
+    "string prompt for section 2"
+  ],
+  "final_prompt": "single string for final evaluation"
 }}
-
 Grading Rubric:
 {grading_prompt}
 """
@@ -152,7 +154,7 @@ def main():
             base_directory,
             model=model,
             num_ctx=ctx,
-            temperature=0.3,
+            temperature=0.1,
             top_p=0.9
         )
         grader.grade_reports()
