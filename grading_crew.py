@@ -12,13 +12,15 @@ class AgenticReportGrader:
                  model: str = 'mistral:7b-instruct',
                  num_ctx: int = 2048,
                  temperature: float = 0.7,
-                 top_p: float = 0.9):
+                 top_p: float = 0.9,
+                 num_predict: int = 3000):
         self.base_directory = base_directory
         self.llm = ChatOllama(
             model=model,
             num_ctx=num_ctx,
             temperature=temperature,
-            top_p=top_p
+            top_p=top_p,
+            num_predict=num_predict
         )
 
     def llm_call(self, prompt: str) -> str:
@@ -39,32 +41,83 @@ class AgenticReportGrader:
         return "\n".join([para.text for para in doc.paragraphs if para.text])
 
     def generate_evaluation_prompts(self, grading_prompt: str) -> dict:
-        """
-        Decompose the grading rubric into two parts:
-          1. A JSON array of section-specific evaluation prompts.
-          2. A final evaluation prompt that instructs the evaluator to:
-             - Use the rubric exactly (without adding new criteria),
-             - Include each section's grade and justification,
-        Output a JSON object with keys "section_prompts" and "final_prompt".
-        """
-        prompt = f"""You are a Prompt Engineering Expert with extensive experience in educational assessment design.
-Analyze and decompose the following grading rubric into two parts:
-1. Generate a JSON array of section-specific evaluation prompts that can be used to evaluate distinct sections of a student report. All of the section prompts should be detailed with every instructions on how to evaluate that section and how to grade that section according to the grading rubrics.Each can be 500 words.
-2. Create a final evaluation prompt for a Senior Grading Coordinator that instructs them to compile a final grading report.
-   The final prompt must require:
-     - Strict use of the provided rubric (do not introduce new criteria),
-     - Inclusion of each section's grade along with justification,
-Return a valid JSON object **with no extra keys**. The structure must be:
-{{
-  "section_prompts": [
-    "string prompt for section 1",
-    "string prompt for section 2"
-  ],
-  "final_prompt": "single string for final evaluation"
-}}
-Grading Rubric:
-{grading_prompt}
-"""
+    
+        prompt = f"""You are a Senior Academic Assessment Specialist with extensive experience in university-level manuscript evaluation.
+
+    First, perform a systematic analysis of the provided grading rubric:
+
+    1. Grade Structure Analysis:
+       - Document the full grade hierarchy (Distinction to Fail)
+       - Map all subcategories (e.g., Exceptional to Low Distinction)
+       - Note the numerical marks for each grade level
+       - Identify grade boundaries and transition criteria
+
+    2. Section Weight Analysis:
+       - Record the weightage of each section
+       - Calculate minimum requirements for each grade level
+       - Note cumulative score requirements
+
+    3. Section-Specific Criteria Analysis:
+       For each of the sections:
+       - Extract specific performance indicators
+       - Map quality descriptors across grade levels
+       - Identify critical differentiators between grade levels
+       - Note section-specific requirements (e.g., reference quality, analysis depth)
+
+    Then, generate:
+
+    1. A JSON array of section-specific evaluation prompts. Each prompt must:
+       - State the section's weight percentage
+       - List specific evaluation criteria
+       - Include detailed grade-level descriptors
+       - Provide clear distinctions between grade subcategories
+       - Include examples of evidence required for each grade level
+       - Specify how to evaluate:
+         * Quality of analysis
+         * Depth of research
+         * Critical thinking
+         * Technical requirements
+         * Reference quality
+       - Include specific checkpoints for common grade transition points
+       - Provide clear documentation requirements
+
+    2. A final evaluation prompt that instructs the Senior Grading Coordinator to:
+       - Use the exact criteria from the rubric without modification
+       - Calculate weighted scores accurately
+       - Provide detailed justification for each section's grade
+       - Include specific evidence supporting grade decisions
+       - Document any grade boundary cases
+       - Ensure consistency across sections
+       - Produce a final grade recommendation with:
+         * Individual section scores
+         * Weighted calculations
+         * Overall grade determination
+         * Grade subcategory specification
+         * Detailed justification
+       - Include quality control checks for:
+         * Rubric adherence
+         * Grade consistency
+         * Evidence documentation
+         * Calculation accuracy
+
+    The system MUST maintain strict adherence to:
+    - The 16-point marking scheme
+    - Section weightings
+    - Grade subcategory requirements
+    - Evidence requirements for each grade level
+
+    Return ONLY a valid JSON object with this structure:
+    {{
+        "section_prompts": [
+            "string prompt for section 1",
+            "string prompt for section 2"
+        ],
+        "final_prompt": "string containing final evaluation instructions"
+    }}
+
+    Grading Rubric:
+    {grading_prompt}
+    """
         response = self.llm_call(prompt)
         cleaned_response = self.clean_response(response)
         try:
@@ -155,7 +208,8 @@ def main():
             model=model,
             num_ctx=ctx,
             temperature=0.1,
-            top_p=0.9
+            top_p=0.9,
+            num_predict=3000
         )
         grader.grade_reports()
         print(f"Completed grading with {model}")
