@@ -43,68 +43,20 @@ class AgenticReportGrader:
     def generate_evaluation_prompts(self, grading_prompt: str) -> dict:
     
         prompt = f"""You are a Senior Academic Assessment Specialist with extensive experience in university-level manuscript evaluation.
+    
+    For each section prompt:
+    1. Extract the exact section name and weight from the rubric
+    2. Include complete grade criteria for each level
+    3. Specify evidence requirements
+    4. Detail evaluation methodology
 
-    First, perform a systematic analysis of the provided grading rubric:
+    For the final prompt:
+    1. Extract all section weights from the rubric
+    2. Create calculation instructions using the exact weights found
+    3. Include full grading criteria
+    4. Specify required justification and documentation
 
-    1. Grade Structure Analysis:
-       - Document the full grade hierarchy (Distinction to Fail)
-       - Map all subcategories (e.g., Exceptional to Low Distinction)
-       - Note the numerical marks for each grade level
-       - Identify grade boundaries and transition criteria
-
-    2. Section Weight Analysis:
-       - Record the weightage of each section
-       - Calculate minimum requirements for each grade level
-       - Note cumulative score requirements
-
-    3. Section-Specific Criteria Analysis:
-       For each of the sections:
-       - Extract specific performance indicators
-       - Map quality descriptors across grade levels
-       - Identify critical differentiators between grade levels
-       - Note section-specific requirements (e.g., reference quality, analysis depth)
-
-    Then, generate:
-
-    1. A JSON array of section-specific evaluation prompts. Each prompt must:
-       - State the section's weight percentage
-       - List specific evaluation criteria
-       - Include detailed grade-level descriptors
-       - Provide clear distinctions between grade subcategories
-       - Include examples of evidence required for each grade level
-       - Specify how to evaluate:
-         * Quality of analysis
-         * Depth of research
-         * Critical thinking
-         * Technical requirements
-         * Reference quality
-       - Include specific checkpoints for common grade transition points
-       - Provide clear documentation requirements
-
-    2. A final evaluation prompt that instructs the Senior Grading Coordinator to:
-       - Use the exact criteria from the rubric without modification
-       - Calculate weighted scores accurately
-       - Provide detailed justification for each section's grade
-       - Include specific evidence supporting grade decisions
-       - Document any grade boundary cases
-       - Ensure consistency across sections
-       - Produce a final grade recommendation with:
-         * Individual section scores
-         * Weighted calculations
-         * Overall grade determination
-         * Grade subcategory specification
-         * Detailed justification
-       - Include quality control checks for:
-         * Rubric adherence
-         * Grade consistency
-         * Evidence documentation
-         * Calculation accuracy
-
-    The system MUST maintain strict adherence to:
-    - The 16-point marking scheme
-    - Section weightings
-    - Grade subcategory requirements
-    - Evidence requirements for each grade level
+    Respond with ONLY the JSON object, no additional text or explanations.
 
     Return ONLY a valid JSON object with this structure:
     {{
