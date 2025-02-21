@@ -247,7 +247,9 @@ Instructions:
 def main():
     base_directory = '/home/akash/Downloads/grading_documents'
     models = {
-        'qwen2.5:7b-instruct-q4_0': 32768
+        'qwen2.5:7b-instruct-q4_0': 32768,
+        'deepseek-r1:7b-qwen-distill-q4_K_M': 32768,
+        'deepseek-r1:8b-llama-distill-q4_K_M': 32768
     }
 
     for model, ctx in models.items():
